@@ -1,0 +1,63 @@
+---
+pg_cluster_dir:   "{{ pg_fs_main }}/postgres/{{ pg_cluster }}-{{ pg_version }}"
+
+pg_init: pg-init                              # init script for cluster template
+
+# - system roles - #
+#pg_monitor_username: dbuser_monitor           # system monitor user
+#pg_monitor_password: DBUser.Monitor           # system monitor password
+
+# - default roles - #
+# chekc http://pigsty.cc/zh/docs/concepts/provision/acl/ for more detail
+pg_default_roles:
+
+  # common production readonly user
+  - name: dbrole_readonly                 # production read-only roles
+    login: false
+    comment: role for global readonly access
+
+  # common production read-write user
+  - name: dbrole_readwrite                # production read-write roles
+    login: false
+    roles: [dbrole_readonly]             # read-write includes read-only access
+    comment: role for global read-write access
+
+
+  # default replication user, name is designated by `pg_monitor_username`, and password is set by `pg_monitor_password`
+  - name: dbuser_monitor
+    connlimit: 16
+    comment: system monitor user
+    roles: [pg_monitor, dbrole_readonly]
+
+
+
+# - privileges - #
+# object created by dbsu and admin will have their privileges properly set
+pg_default_privileges:
+  - GRANT USAGE                         ON SCHEMAS   TO dbrole_readonly
+  - GRANT SELECT                        ON TABLES    TO dbrole_readonly
+  - GRANT SELECT                        ON SEQUENCES TO dbrole_readonly
+  - GRANT EXECUTE                       ON FUNCTIONS TO dbrole_readonly
+  - GRANT INSERT, UPDATE, DELETE        ON TABLES    TO dbrole_readwrite
+  - GRANT USAGE,  UPDATE                ON SEQUENCES TO dbrole_readwrite
+
+# - schemas - #
+pg_default_schemas: [monitor]                 # default schemas to be created
+
+# - extension - #
+pg_default_extensions:                        # default extensions to be created
+  - { name: 'pg_stat_statements',  schema: 'monitor' }
+  - { name: 'pgstattuple',         schema: 'monitor' }
+  - { name: 'pg_buffercache',      schema: 'monitor' }
+  - { name: 'pageinspect',         schema: 'monitor' }
+  - { name: 'pg_visibility',       schema: 'monitor' }
+  - { name: 'pg_freespacemap',     schema: 'monitor' }
+  - name: postgres_fdw
+  - name: file_fdw
+  - name: btree_gist
+  - name: btree_gin
+  - name: pg_trgm
+  - name: intagg
+  - name: intarray
+
+...

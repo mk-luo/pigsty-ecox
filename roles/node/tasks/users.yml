@@ -4,6 +4,7 @@
 #==============================================================#
 - name: Copy default user bash profile
   tags: node_profile
+  when: node_os != 'SLES'
   copy: src=profile.sh dest=/etc/profile.d/profile.sh mode=755
 
 

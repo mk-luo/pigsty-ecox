@@ -1,0 +1,81 @@
+---
+
+- name: SUSE Node disable firewall
+  tags: node_firewall
+  ignore_errors: true
+  block:
+    # - disable firewall - #
+    - name: Node configure disable firewall
+      when: node_disable_firewall
+      systemd: name=SuSEfirewall2 state=stopped enabled=no
+
+    - name: Node configure stop firewall
+      when: node_disable_firewall
+      shell: /sbin/SuSEfirewall2 stop
+
+#------------------------------------------------------------------------------
+# Install
+#------------------------------------------------------------------------------
+- import_tasks: install.yml
+  tags: install
+
+#------------------------------------------------------------------------------
+# Preflight
+#------------------------------------------------------------------------------
+# check and set inventory variables
+- import_tasks: preflight.yml
+  tags: preflight
+
+
+#------------------------------------------------------------------------------
+# Prepare
+#------------------------------------------------------------------------------
+# check pg existence, cleanup, create directories, copy scripts
+- import_tasks: prepare.yml
+  tags: prepare
+
+
+#------------------------------------------------------------------------------
+# configure postgres and ecox
+#------------------------------------------------------------------------------
+# bootstrap postgres cluster
+- import_tasks: configure.yml
+  tags: configure
+
+
+#------------------------------------------------------------------------------
+# Bootstrap primary node
+#------------------------------------------------------------------------------
+# bootstrap postgres cluster
+- import_tasks: primary.yml
+  when: pg_role == 'primary'
+  tags: primary
+
+
+#------------------------------------------------------------------------------
+# Start EcoX
+#------------------------------------------------------------------------------
+# bootstrap postgres cluster
+- import_tasks: cluster.yml
+  tags: cluster_launch
+
+
+#------------------------------------------------------------------------------
+# Users
+#------------------------------------------------------------------------------
+- include_tasks: createuser.yml
+  tags: pg_user
+  vars:
+    user: "{{ item }}"
+  with_items: "{{ pg_users }}"
+
+#------------------------------------------------------------------------------
+# Databases
+#------------------------------------------------------------------------------
+- include_tasks: createdb.yml
+  tags: pg_db
+  vars:
+    database: "{{ item }}"
+  with_items: "{{ pg_databases }}"
+
+...

@@ -75,4 +75,21 @@
       yum: name={{ item }} disable_gpg_check=true
       with_items: "{{ node_meta_packages }}"
 
+
+#------------------------------------------------------------------------------
+# Install packages for SUSE
+#------------------------------------------------------------------------------
+- name: Install node packages from loca repo
+  tags: node_pkgs
+  when: node_repo_method == 'none' and node_os == 'SLES'
+  block:
+    # install common node packages
+    - name: Install node basic packages
+      shell: /usr/bin/zypper -n install {{ repo_home }}/{{ repo_name }}/node/{{ item }}/*.rpm
+      with_items: "{{ node_packages }}"
+
+    - name: Install meta specific packages
+      when: meta_node|bool
+      shell: /usr/bin/zypper -n install {{ repo_home }}/{{ repo_name }}/{{ item }}-*.rpm
+      with_items: "{{ node_meta_packages }}"
 ...

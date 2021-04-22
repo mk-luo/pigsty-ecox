@@ -1,0 +1,31 @@
+---
+#------------------------------------------------------------------------------
+# INSTALLATION
+#------------------------------------------------------------------------------
+ecox_rpm: EcoX-5.13-0.x86_64.rpm
+pkg_mgr: zypper
+
+#------------------------------------------------------------------------------
+# Zookeeper connect string
+#------------------------------------------------------------------------------
+zkhost: 10.9.10.84:2181,10.9.10.82:2181,10.9.10.106:2181
+
+
+#------------------------------------------------------------------------------
+# - dbsu - #
+#------------------------------------------------------------------------------
+pg_dbsu: postgres
+pg_install_dir:
+  10: '/usr/lib/postgresql10'
+  13: '/usr/pgsql-13'
+
+
+# - cleanup - #
+# pg_exists_action, available options: abort|clean|skip
+#  - abort: abort entire play's execution (default)
+#  - clean: remove existing cluster (dangerous)
+#  - skip: end current play for this host
+pg_exists: false                              # auxiliary flag variable (DO NOT SET THIS)
+pg_exists_action: abort
+pg_disable_purge: false                       # if true, it will abort on any running instance regardless pg_exists_action
+...

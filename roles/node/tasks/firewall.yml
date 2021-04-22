@@ -1,6 +1,7 @@
 ---
 - name: Node disable firewall
   tags: node_firewall
+  when: node_os != 'SLES'
   ignore_errors: true
   block:
     # - disable firewall - #
@@ -12,4 +13,18 @@
     - name: Node disable selinux by default
       when: node_disable_selinux
       selinux: state=disabled
+
+- name: SUSE Node disable firewall
+  tags: node_firewall
+  when: node_os == 'SLES'
+  ignore_errors: true
+  block:
+    # - disable firewall - #
+    - name: Node configure disable firewall
+      when: node_disable_firewall
+      systemd: name=SuSEfirewall2 state=stopped enabled=no
+
+    - name: Node configure stop firewall
+      when: node_disable_firewall
+      shell: /sbin/SuSEfirewall2 stop
 ...

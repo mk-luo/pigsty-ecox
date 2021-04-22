@@ -1,0 +1,47 @@
+---
+#------------------------------------------------------------------------------
+# Start primary node and create users and schema
+#------------------------------------------------------------------------------
+- name: Start Primary PostgreSql
+  tags: primary_start
+  block:
+    - name: Start PostgreSQL
+      tags: start_primary_pg
+      become_user: "{{ pg_dbsu }}"
+      shell: "{{ pg_bin_dir }}/pg_ctl start -D {{ pg_data }}"
+
+    - name: Wait for postgres primary online
+      wait_for: host={{ inventory_hostname }} port={{ pg_port }} state=started timeout=30
+
+
+
+#------------------------------------------------------------------------------
+# init postgres cluster
+#------------------------------------------------------------------------------
+- name: Init primary instance
+  tags: pg_init
+  any_errors_fatal: true
+  block:
+
+    - name: Render init roles sql
+      tags: pg_init_role
+      template: src="pg-init-roles.sql" dest=/pg/tmp/pg-init-roles.sql owner={{ pg_dbsu }} group=postgres mode=0755
+
+    - name: Render init template sql
+      tags: pg_init_tmpl
+      template: src="pg-init-template.sql" dest=/pg/tmp/pg-init-template.sql owner={{ pg_dbsu }} group=postgres mode=0755
+
+    - name: Render default pg-init scripts
+      tags: pg_init_main
+      template: src="{{ pg_init }}" dest=/pg/bin/pg-init owner={{ pg_dbsu }} group=postgres mode=0755
+
+    - name: Execute initialization scripts
+      tags: pg_init_exec
+      become_user: "{{ pg_dbsu }}"
+      command: /pg/bin/pg-init
+
+    - name: Stop primary
+      become_user: "{{ pg_dbsu }}"
+      shell: "{{ pg_bin_dir }}/pg_ctl stop -D {{ pg_data }}"
+
+...

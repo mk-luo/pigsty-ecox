@@ -1,0 +1,45 @@
+#!/usr/bin/env ansible-playbook
+---
+#------------------------------------------------------------------------------
+# Remove Monitor Components
+#------------------------------------------------------------------------------
+- name: Remove monitor
+  become: yes
+  hosts: all
+  gather_facts: no
+  tags: monitor
+  ignore_errors: true
+  tasks:
+
+    #-------------------------------
+    # Stop pg/pgb exporter
+    #-------------------------------
+    - name: Stop monitor service
+      systemd: name={{ item }} state=stopped enabled=no daemon_reload=yes
+      with_items:
+        - pg_exporter
+        - pgbouncer_exporter
+
+
+    - name: Stop prometail service
+      when: promtail_enabled|bool
+      tags: promtail
+      systemd: name=promtail state=stopped enabled=no daemon_reload=yes
+
+
+#------------------------------------------------------------------------------
+# Remove EcoX cluster
+#------------------------------------------------------------------------------
+- name: Remove Postgres, EcoX service
+  become: yes
+  hosts: all
+  gather_facts: no
+  tags: cluster_destroy
+  ignore_errors: true
+  tasks:
+    - include_tasks: roles/ecox/tasks/destroy.yml
+
+
+...
+
+

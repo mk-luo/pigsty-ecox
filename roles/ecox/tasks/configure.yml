@@ -1,0 +1,79 @@
+---
+#------------------------------------------------------------------------------
+# Config primary postgres node
+#------------------------------------------------------------------------------
+
+- name: Configure Postgres Primary
+  tags: pg_config
+  when: pg_role == 'primary'
+  block:
+
+    #------------------------------------------------------------------------------
+    # calculate parameters
+    #------------------------------------------------------------------------------
+    - name: Get config parameter page count
+      command: getconf _PHYS_PAGES
+      register: node_page_count  # half mem in pages
+
+    - name: Get config parameter page size
+      shell: getconf PAGE_SIZE
+      register: node_page_size  # half mem in bytes
+
+    - name: Tune shared buffer and work mem
+      connection: local
+      set_fact: # max shared-buffer 32GB | max maintainance work mem 8GB
+        pg_shared_buffers_bytes: "{{ ([((node_page_count.stdout|int) * (node_page_size.stdout|int) / 4) , 34359738368] | min)|int }}"
+        pg_maintenance_work_mem_bytes: "{{ ([((node_page_count.stdout|int) * (node_page_size.stdout|int) / 16) , 8589934592] | min)|int }}"
+
+    - name: Hanlde small size mem occasion
+      connection: local
+      when: pg_shared_buffers_bytes|int < 1073741824  # < 1GB
+      set_fact:
+        pg_shared_buffers: "256MB"
+        pg_maintenance_work_mem: "64MB"
+
+    - name: Calculate postgres mem params
+      connection: local
+      when: pg_shared_buffers_bytes|int >= 1073741824  # >= 1GB
+      set_fact:
+        pg_shared_buffers: "{{ (pg_shared_buffers_bytes|int / 1073741824)|round(0)|int }}GB"
+        pg_maintenance_work_mem: "{{ (pg_maintenance_work_mem_bytes|int / 1048576)|round(0)|int }}MB"
+
+    - name: Init postgres data
+      become_user: "{{ pg_dbsu }}"
+      shell: "{{ pg_bin_dir }}/initdb -D {{ pg_data }} -E UTF8"
+
+
+    - name: Replace tuned postgres.conf
+      template:
+        src: "{{ pg_conf }}"
+        dest: "{{ pg_data }}/postgresql.conf"
+        owner: "{{ pg_dbsu }}"
+        group: postgres
+        mode: 0644
+
+    - name: Render hba rules
+      template: src=pg_hba.conf.j2 dest={{ pg_data }}/pg_hba.conf owner={{ pg_dbsu }} group=postgres mode=0600
+
+
+- name: Configure EcoX
+  tags: ecox_config
+  block:
+    # get all etcd servers
+    - name: Build zk cluster url
+      connection: local
+      set_fact:
+        zkhostlist: |-
+          [{% for ip in dcs_servers.values() %} "{{ ip }}:2181" {% endfor %}]
+
+
+    - name: Build zkhost
+      connection: local
+      set_fact:
+        zkhost: "{{ zkhostlist | join(',') }}"
+
+
+    - name: Generate ecox.conf
+      template: src=ecox.conf.j2 dest=/usr/EcoX/etc/ecox.conf mode=0644
+
+

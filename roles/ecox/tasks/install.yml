@@ -1,0 +1,86 @@
+---
+#==============================================================#
+# Create dbsu                                                  #
+#==============================================================#
+- name: Create postgres dbsu
+  become: yes
+  tags: pg_dbsu
+  block:
+    # - dbsu users and groups - #
+    - name: Create os group postgres
+      group: name=postgres gid={{ pg_dbsu_uid }}
+
+    - name: Create dbsu {{ pg_dbsu }}
+      user: name={{ pg_dbsu }} uid={{ pg_dbsu_uid }} home={{ pg_dbsu_home }} group=postgres generate_ssh_key=yes
+
+    - name: Fix pg home directory ownership
+      file: path={{ pg_dbsu_home }} state=directory owner={{ pg_dbsu }} group=postgres
+
+#------------------------------------------------------------------------------
+# Install
+#------------------------------------------------------------------------------
+- name: Install PostgreSQL
+  become: yes
+  tags: pg_install
+  block:
+    - name: Copy PostgreSQL RPMS
+      copy:
+        src: "{{ repo_home }}/{{ repo_name }}/postgres/{{ pg_version }}"
+        dest: /tmp
+        mode: 0755
+
+    - name: Install PostgreSQL RPMS
+      shell: /usr/bin/zypper -n --no-gpg-check install /tmp/{{ pg_version }}/*.rpm
+
+    #==============================================================#
+    # Stage 5: Enable current version                              #
+    #==============================================================#
+    # centos default directory
+
+    - name: Link /usr/pgsql to current version
+      file: src="{{ pg_install_dir[pg_version] }}" dest={{ pg_bin_dir | dirname }} state=link
+
+
+    - name: Add pg bin dir to profile path
+      copy:
+        content: "export PATH={{ pg_bin_dir }}:/pg/bin:/usr/EcoX/bin:$PATH"
+        dest: /etc/profile.d/pgsql.sh
+
+    - name: Fix directory ownership
+      file: path=/var/run/postgresql state=directory owner={{ pg_dbsu }} group=postgres
+
+
+
+- name: Install EcoX
+  become: yes
+  tags: ecox_install
+  block:
+    - name: Copy EcoX RPMS
+      copy:
+        src: "{{ repo_home }}/{{ repo_name }}/{{ ecox_rpm }}"
+        dest: /tmp
+        mode: 0755
+
+    - name: Install PostgreSQL RPMS
+      zypper:
+        name: /tmp/{{ ecox_rpm }}
+        state: present
+        disable_gpg_check: yes
+
+    #------------------------------------------------------------------------------
+    # ecox systemd
+    #------------------------------------------------------------------------------
+    #
+    - name: Copy EcoX systemd service file
+      template:
+        src: ecox.service.j2
+        dest: /usr/lib/systemd/system/ecox.service
+
+
+    - name: Enable EcoX systemd
+      systemd:
+        daemon_reload: yes
+        name: ecox
+        enabled: yes
+
+...

@@ -12,6 +12,8 @@ roles/grafana/files/customize/public.tar.gz
 #########################################################
 files/bin/
 files/*.tgz
+roles/grafana/files/*.tgz
+roles/monitor/files/bin/*
 
 
 #########################################################

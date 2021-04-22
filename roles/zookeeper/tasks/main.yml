@@ -1,0 +1,127 @@
+---
+- name: Set fact zk_home
+  set_fact:
+    zk_root: "{{ zk_home_dir }}/zk-bin"
+
+- name: test
+  set_fact:
+    zkhostlist: |-
+      [{% for ip in dcs_servers.values() %} "{{ ip }}:2181" {% endfor %}]
+
+- name: test
+  debug:
+    msg: "{{ zkhostlist | join(',') }}"
+
+#------------------------------------------------------------------------------
+# Check zookeeper
+#------------------------------------------------------------------------------
+- name: Check existing zookeeper
+  tags: zk_check
+  block:
+    #--------------------------------------------------------------------------
+    # check etcd exists
+    #--------------------------------------------------------------------------
+    - name: Check for existing etcd
+      command: 'ss -tp state listening sport = :2181'
+      register: check_zk_port_result
+
+    - name: Etcd exists flag fact set
+      set_fact:
+        etcd_exists: "{{ 'java' in check_zk_port_result.stdout }}"
+
+    #--------------------------------------------------------------------------
+    # skip or abort if dcs already exists
+    #--------------------------------------------------------------------------
+    - name: Abort due to etcd exists
+      when: etcd_exists and dcs_exists_action == 'abort'
+      any_errors_fatal: true
+      fail: msg="Abort because etcd instance already exists and dcs_exists_action=abort"
+
+    - name: Skip due to etcd exists
+      when: etcd_exists and dcs_exists_action == 'skip'
+      meta: end_host
+
+    #--------------------------------------------------------------------------
+    # purge dcs
+    #--------------------------------------------------------------------------
+    - name: Clean existing etcd instance
+      when: etcd_exists and dcs_exists_action == 'clean' # DANGEROUS!
+      debug:
+        msg: "[DANGEROUS] running instance {{ inventory_hostname }} will be purged!"
+
+    # dangerous: (it will remove etcd data!)
+    - name: Purge existing zookeeper instance
+      shell: |
+        {{ zk_root }}/bin/zkServer.sh stop
+        rm -rf {{ zk_data_dir }} {{ zk_root }}
+
+
+#------------------------------------------------------------------------------
+# Install Zookeeper
+#------------------------------------------------------------------------------
+- name: Install Zookeeper
+  tags: install_zookeeper
+  block:
+    - name: Create zk group
+      group:
+        name: zk
+        state: present
+
+    - name: Create zk user
+      user:
+        name: zk
+        home: "{{ zk_home_dir }}"
+        group: zk
+        state: present
+
+    - name: Install Zookeeper deps and pkg
+      block:
+        - name: Install JDK
+          shell: /usr/bin/zypper -n --no-gpg-check install {{ repo_home }}/{{ repo_name }}/zookeeper/*.rpm
+
+        - name: Install Zookeeper package
+          shell: |
+            tar xzf {{ repo_home }}/{{ repo_name }}/zookeeper/apache-zookeeper-3.5.9-bin.tar.gz -C {{ zk_home_dir }}
+            mv {{ zk_home_dir }}/apache-zookeeper-3.5.9-bin {{ zk_root }}
+            chown -R zk:zk {{ zk_root }}
+
+    - name: Create Zookeeper Data dir
+      file: path={{ zk_data_dir }} state=directory owner=zk group=zk mode=0755
+
+
+
+#------------------------------------------------------------------------------
+# Config Zookeeper
+#------------------------------------------------------------------------------
+- name: Config Zookeeper
+  block:
+    - name: Generate zk config file
+      template:
+        src: zoo.cfg.j2
+        dest: "{{ zk_root }}/conf/zoo.cfg"
+        owner: zk
+        group: zk
+        mode: 0755
+
+    - name: Set fact server index
+      set_fact:
+        server_idx: "{{ dcs_servers.values().index(inventory_hostname) }}"
+
+    - name: Set myid
+      become_user: zk
+      shell: echo {{ server_idx }} > {{ zk_data_dir }}/myid
+
+
+
+- name: Start Zookeeper
+  become_user: zk
+  block:
+    - name: Start zookeeper
+      shell: "{{ zk_root }}/bin/zkServer.sh start"
+
+    - name: Wait for zookeeper online
+      wait_for: host={{ inventory_hostname }} port=2181 state=started timeout=30
+
+
+
+...

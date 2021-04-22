@@ -1,0 +1,40 @@
+---
+
+#------------------------------------------------------------------------------
+# Launch EcoX
+#------------------------------------------------------------------------------
+# primary first , replica next
+- name: Launch primary EcoX instance
+  tags: ecox_primary
+  any_errors_fatal: true
+  when: pg_role == 'primary'
+  block:
+    - name: Launch EcoX on primary instance
+      systemd:
+        state: started
+        name: ecox
+
+    - name: Wait for postgres primary online
+      wait_for: host={{ inventory_hostname }} port={{ pg_port }} state=started timeout=30
+
+
+
+#------------------------------------------------------------------------------
+# Launch replicas
+#------------------------------------------------------------------------------
+# bootstrap other replicas
+- name: Launch replica EcoX instance
+  tags: ecox_replica
+  any_errors_fatal: true
+  when: pg_role != 'primary'
+  block:
+    - name: Launch EcoX on replica instances
+      systemd:
+        state: started
+        name: ecox
+
+    - name: Wait for postgres replica online
+      wait_for: host={{ inventory_hostname }} port={{ pg_port }} state=started timeout=30
+
+
+...

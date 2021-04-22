@@ -1,0 +1,150 @@
+#!/usr/bin/env ansible-playbook
+---
+#------------------------------------------------------------------------------
+# provision nodes
+#------------------------------------------------------------------------------
+- name: Provision Node
+  become: yes
+  hosts: meta
+  gather_facts: yes
+  tags: node
+  vars:
+    node_packages:
+      - tuned
+    node_meta_packages:
+      - python-netaddr
+    node_repo_method: 'none'
+    node_static_network: false
+
+  tasks:
+    - name: Set fact whether pg port is open
+      set_fact:
+        node_os: "{{ ansible_distribution }}"
+
+    - include_tasks: roles/node/tasks/firewall.yml
+    - include_tasks: roles/node/tasks/pkgs.yml
+    - include_tasks: roles/node/tasks/feature.yml
+    - include_tasks: roles/node/tasks/kernel.yml
+    - include_role:
+        name: node
+        tasks_from: tuned
+    - include_role:
+        name: node
+        tasks_from: users
+
+
+#------------------------------------------------------------------------------
+# init meta service (only run on meta nodes)
+#------------------------------------------------------------------------------
+- name: Init meta service
+  become: yes
+  hosts: meta
+  gather_facts: no
+  tags: meta
+  tasks:
+    - name: Deploy nginx
+      block:
+        - name: Install nginx
+          shell: /usr/bin/zypper -n --no-gpg-check install {{ repo_home }}/{{ repo_name }}/nginx-*.rpm
+
+        - include_role:
+            name: nginx
+            tasks_from: content
+
+        - include_role:
+            name: nginx
+            tasks_from: config
+
+        - include_role:
+            name: nginx
+            tasks_from: restart
+
+    - name: Deploy prometheus and grafana
+      tags: deploy_prometheus
+      block:
+        - name: Install prometheus
+          shell: tar xzf {{ repo_home }}/{{ repo_name }}/{{ item }} -C /
+          with_items:
+            - prometheus-2.26.0.tar.gz
+            - alertmanager-0.21.0.tar.gz
+
+        - name: Create prometheus group
+          group:
+            name: prometheus
+            state: present
+
+        - name: Create prometheus user
+          user:
+            name: prometheus
+            home: /var/lib/prometheus
+            group: prometheus
+            state: present
+
+        - include_tasks: roles/prometheus/tasks/cleanup.yml
+
+        - include_role:
+            name: prometheus
+            tasks_from: config
+
+        - include_role:
+            name: prometheus
+            tasks_from: launch
+
+        - include_role:
+            name: prometheus
+            tasks_from: targets
+
+        - include_role:
+            name: prometheus
+            tasks_from: reload
+
+    - name: Deploy grafana
+      tags: deploy_grafana
+      block:
+        - name: Install grafana
+          shell: /bin/rpm -i --nodeps --replacepkgs {{ repo_home }}/{{ repo_name }}/grafana-*.rpm
+
+        - name: Stop grafana service
+          ignore_errors: true
+          tags: grafana_stop
+          systemd: name=grafana-server state=stopped enabled=yes daemon_reload=yes
+
+        - include_role:
+            name: grafana
+            tasks_from: plugins
+
+        - include_role:
+            name: grafana
+            tasks_from: config
+
+        - include_role:
+            name: grafana
+            tasks_from: customize
+
+        - name: Launch Grafana
+          tags: grafana_launch
+          block:
+            - name: Launch grafana service
+              systemd: name=grafana-server state=restarted enabled=yes daemon_reload=yes
+
+            - name: Wait for grafana online
+              wait_for: host=localhost port=3000 state=started
+
+        - include_tasks: roles/grafana/tasks/provision.yml
+
+
+#------------------------------------------------------------------------------
+# init zookeeper on nodes
+#------------------------------------------------------------------------------
+- name: Init zookeeper
+  become: yes
+  hosts: meta
+  tags: zookeeper
+  gather_facts: no
+  roles:
+    - role: zookeeper
+      tags: zookeeper
+
+
+
+...

@@ -1,0 +1,8 @@
+tickTime=2000
+initLimit=10
+syncLimit=5
+clientPort=2181
+dataDir={{ zk_data_dir }}
+{% for zk in dcs_servers.values() %}
+server.{{ loop.index }}={{ zk }}:2888:3888
+{% endfor %}

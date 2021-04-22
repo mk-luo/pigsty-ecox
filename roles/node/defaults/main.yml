@@ -7,6 +7,7 @@
 
 # - node type -#
 meta_node: false                              # if set, meta packages will be installed
+node_os: CentOS
 
 # - node dns - #
 node_dns_hosts: []                            # static dns records in /etc/hosts

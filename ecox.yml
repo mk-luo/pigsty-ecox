@@ -1,0 +1,28 @@
+#!/usr/bin/env ansible-playbook
+---
+#==============================================================#
+# File      :   ecox.yml
+# Mtime     :   2020-05-12
+# Mtime     :   2021-03-15
+# Desc      :   initialize ecox cluster
+# Path      :   ecox.yml
+# Copyright (C) 2018-2021 Ruohang Feng
+#==============================================================#
+
+
+
+#------------------------------------------------------------------------------
+# init node and database
+#------------------------------------------------------------------------------
+- name: Init EcoX Cluster
+  become: yes
+  hosts: all
+  tags: "create_cluster"
+  gather_facts: no
+  roles:
+    - role: ecox                         # init ecox cluster
+      vars:
+        pg_dbsu: postgres                # must be postgres
+
+
+...

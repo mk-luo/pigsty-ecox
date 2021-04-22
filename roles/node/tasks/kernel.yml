@@ -7,5 +7,6 @@
       with_items: "{{ node_kernel_modules }}"
 
     - name: Enable kernel module on reboot
+      when: node_os != 'SLES'
       template: src=kernel.modules.j2 dest=/etc/sysconfig/modules/kernel.modules mode=0755
 ...

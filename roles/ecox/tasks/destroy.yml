@@ -1,0 +1,21 @@
+---
+#------------------------------------------------------------------------------
+# Config primary postgres node
+#------------------------------------------------------------------------------
+
+- name: Destroy Node
+  block:
+    - name: Stop EcoX
+      systemd:
+        state: stopped
+        name: ecox
+
+    - name: Clear EcoX cluster
+      shell: /etc/init.d/ecoxd clean
+
+    - name: Uninstall EcoX
+      zypper:
+        name: EcoX
+        state: absent
+
+...

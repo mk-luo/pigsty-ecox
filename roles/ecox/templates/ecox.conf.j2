@@ -1,0 +1,34 @@
+root=/EcoX
+cluster={{ pg_cluster }}
+zkhost={{ zkhost }}
+zktimeout=9000
+pgcomaster_num=1
+auto_promote_slave=true
+use_watch_dog=false
+
+pghost={{ inventory_hostname }}
+pgbin={{ pg_bin_dir }}
+pgport={{ pg_port }}
+pgdata={{ pg_data }}
+pgclient_net=0.0.0/0
+pgcluster_net=0.0.0.0/0
+
+{% if vip_mode != 'none' %}
+do_not_use_vip=false
+is_vip_use_real_interface=false
+eth_port={{ vip_interface }}
+virtual_ip={{ vip_address }}
+netmask={{ "{0}/{1}".format(vip_address, vip_cidrmask) | ipaddr('netmask') }}
+{% else %}
+do_not_use_vip=true
+is_vip_use_real_interface=false
+eth_port=eth0
+virtual_ip=10.9.10.1
+netmask=255.255.255.0
+{% endif %}
+
+
+do_not_use_comaster_vip=true
+comaster_eth_port=eth0
+comaster_virtual_ip=10.10.0.1
+comaster_netmask=255.255.255.0
