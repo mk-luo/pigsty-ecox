@@ -59,20 +59,6 @@
 - name: Configure EcoX
   tags: ecox_config
   block:
-    # get all etcd servers
-    - name: Build zk cluster url
-      connection: local
-      set_fact:
-        zkhostlist: |-
-          [{% for ip in dcs_servers.values() %} "{{ ip }}:2181" {% endfor %}]
-
-
-    - name: Build zkhost
-      connection: local
-      set_fact:
-        zkhost: "{{ zkhostlist | join(',') }}"
-
-
     - name: Generate ecox.conf
       template: src=ecox.conf.j2 dest=/usr/EcoX/etc/ecox.conf mode=0644
 

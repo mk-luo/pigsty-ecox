@@ -1,3 +1,4 @@
 ---
 zk_home_dir: /home/zk
+etcd_exists: false
 ...

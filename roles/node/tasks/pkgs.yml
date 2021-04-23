@@ -90,6 +90,10 @@
 
     - name: Install meta specific packages
       when: meta_node|bool
-      shell: /usr/bin/zypper -n install {{ repo_home }}/{{ repo_name }}/{{ item }}-*.rpm
+      shell: |
+        /usr/bin/zypper -n install {{ repo_home }}/{{ repo_name }}/{{ item }}-*.rpm
+        cp -f {{ repo_home }}/{{ repo_name }}/jq /usr/bin/
       with_items: "{{ node_meta_packages }}"
+
+
 ...

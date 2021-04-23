@@ -41,6 +41,11 @@
   hosts: meta
   gather_facts: no
   tags: meta
+  vars:
+    #------------------------------------------------------------------------------
+    # RECOMMEND CHANGES
+    #------------------------------------------------------------------------------
+    prometheus_sd_method: static                  # service discovery method: static|consul|etcd
   tasks:
     - name: Deploy nginx
       block:

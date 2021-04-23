@@ -70,4 +70,15 @@
     - name: Debug print instance summary
       debug:
         msg: "cluster={{ pg_cluster }} service={{ pg_service }} instance={{ pg_instance }} replication={{ pg_upstream | default('[primary:itself]') }}->{{ inventory_hostname }}"
+
+    # get all etcd servers
+    - name: Build zk cluster url
+      set_fact:
+        zkhostlist: |-
+          [{% for ip in dcs_servers.values() %} "{{ ip }}:2181" {% endfor %}]
+
+    - name: Build zkhost
+      set_fact:
+        zkhost: "{{ zkhostlist | join(',') }}"
+
 ...
